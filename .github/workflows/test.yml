@@ -17,10 +17,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        container: [hello_world]
+        container: ${{ steps.list_dirs.outputs.matrix }}
     steps:
       - name: Check out repo
         uses: actions/checkout@v2
+      - id: list_dirs
+        run: echo "::set-output name=matrix::$(ls -d -- * |jq -cnR '[inputs | select(length>0)]')"
       - name: Extract branch name
         shell: bash
         run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
