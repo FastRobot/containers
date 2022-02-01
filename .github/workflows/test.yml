@@ -15,8 +15,8 @@ jobs:
     name: Ubuntu Builder
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        fail-fast: false
         container: [hello_world]
     steps:
       - name: Check out repo
