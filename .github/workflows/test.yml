@@ -17,7 +17,8 @@ jobs:
     steps:
       - name: Check out repo
         uses: actions/checkout@v2
-      - id: list_dirs
+      - name: Find directories
+        id: list_dirs
         run: echo "::set-output name=matrix::$(ls -d -- * |jq -cnR '[inputs | select(length>0)]')"
       - name: Extract branch name
         shell: bash
@@ -27,9 +28,15 @@ jobs:
       matrix: ${{ steps.list_dirs.outputs.matrix }}
       branch_name: ${{ steps.extract_branch.outputs.branch }}
 
-  credential_up:
-    name: Logging into ECR
+  aws_creds_and_build_tag_push:
+    name: ECR access and build-push of containers
     runs-on: ubuntu-latest
+    needs:
+      - enumerate_containers
+    strategy:
+      fail-fast: false
+      matrix:
+        container: ${{ fromJson(needs.enumerate_containers.outputs.matrix) }}
     steps:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v1
@@ -40,30 +47,15 @@ jobs:
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v1
-    outputs:
-      registry: ${{ steps.login-ecr.outputs.registry }}
-
-  build_tag_push:
-    name: Build, Tag, and Push to Amazon ECR
-    needs:
-     - enumerate_containers
-     - credential_up
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        container: ${{ fromJson(needs.enumerate_containers.outputs.matrix) }}
-    steps:
       - name: Build, tag, and push image to Amazon ECR
         env:
-          ECR_REGISTRY: ${{ needs.credential_up.outputs.registry }}
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           ECR_REPOSITORY: ${{ matrix.container }}
           IMAGE_TAG: ${{ needs.enumerate_containers.outputs.branch_name }}
-        working-directory: ./${{ matrix.container }}
+        #working-directory: ./${{ matrix.container }}
         run: |
           pwd
           ls
-
           #aws sts get-caller-identity
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
