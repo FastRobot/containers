@@ -19,7 +19,7 @@ jobs:
         uses: actions/checkout@v2
       - name: Find directories with a Dockerfile in it
         id: list_dirs
-        run: echo "::set-output name=matrix::$(find . -type f -name Dockerfile -depth 2| awk -F/ '{print $2}' |jq -cnR '[inputs | select(length>0)]')"
+        run: echo "::set-output name=matrix::$(find . -maxdepth 2 -type f -name Dockerfile | awk -F/ '{print $2}' |jq -cnR '[inputs | select(length>0)]')"
       - name: Extract branch name
         shell: bash
         run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
