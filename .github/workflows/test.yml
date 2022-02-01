@@ -54,7 +54,7 @@ jobs:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           ECR_REPOSITORY: ${{ matrix.container }}
           IMAGE_TAG: ${{ needs.enumerate_containers.outputs.branch_name }}
-        #working-directory: ./${{ matrix.container }}
+        working-directory: ./${{ matrix.container }}
         run: |
           pwd
           ls
