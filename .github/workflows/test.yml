@@ -11,13 +11,9 @@ env:
   AWS_REGION: us-west-2
 
 jobs:
-  build:
-    name: Ubuntu Builder
+  enumerate_containers:
+    name: Gathering containers to build
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        container: ${{ steps.list_dirs.outputs.matrix }}
     steps:
       - name: Check out repo
         uses: actions/checkout@v2
@@ -27,6 +23,14 @@ jobs:
         shell: bash
         run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
         id: extract_branch
+    outputs:
+      matrix: ${{ steps.list_dirs.outputs.matrix }}
+      branch_name: ${{ steps.extract_branch.outputs.branch }}
+
+  credential_up:
+    name: Logging into ECR
+    runs-on: ubuntu-latest
+    steps:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
@@ -36,13 +40,28 @@ jobs:
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v1
+    outputs:
+      registry: ${{ steps.login-ecr.outputs.registry }}
+
+  build_tag_push:
+    name: Build, Tag, and Push to Amazon ECR
+    needs:
+     - enumerate_containers
+     - credential_up
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        container: ${{ fromJson(needs.enumerate_containers.outputs.matrix) }}
+    steps:
       - name: Build, tag, and push image to Amazon ECR
         env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REGISTRY: ${{ needs.credential_up.outputs.registry }}
           ECR_REPOSITORY: ${{ matrix.container }}
-          IMAGE_TAG: ${{ steps.extract_branch.outputs.branch }}
+          IMAGE_TAG: ${{ needs.enumerate_containers.outputs.branch_name }}
         working-directory: ./${{ matrix.container }}
         run: |
+          echo working in $(pwd)
           #aws sts get-caller-identity
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
